@@ -251,11 +251,11 @@ class Items extends Secure_Controller
 				$item_info->tax_category_id = $this->config->item('default_tax_category');
 			}
 		}
-
+		
 		$data['standard_item_locked'] = ($data['item_kit_disabled'] && $item_info->item_type == ITEM_KIT
-										&& !$data['allow_temp_item']
-										&& !($this->config->item('derive_sale_quantity') == '1'));
-
+			&& !$data['allow_temp_item']
+			&& !($this->config->item('derive_sale_quantity') == '1'));
+		
 		$data['item_info'] = $item_info;
 		
 		$suppliers = array('' => $this->lang->line('items_none'));
@@ -480,7 +480,8 @@ class Items extends Secure_Controller
 	{
 		$upload_success = $this->_handle_image_upload();
 		$upload_data = $this->upload->data();
-		$receiving_quantity = parse_quantity($this->input->post('receiving_quantity'));
+		
+		$receiving_quantity = parse_decimals($this->input->post('receiving_quantity'));
 		$item_type = $this->input->post('item_type') == NULL ? ITEM : $this->input->post('item_type');
 		
 		if($receiving_quantity == '0' && $item_type!= ITEM_TEMP)
@@ -500,7 +501,7 @@ class Items extends Secure_Controller
 			'item_number' => $this->input->post('item_number') == '' ? NULL : $this->input->post('item_number'),
 			'cost_price' => parse_decimals($this->input->post('cost_price')),
 			'unit_price' => parse_decimals($this->input->post('unit_price')),
-			'reorder_level' => parse_quantity($this->input->post('reorder_level')),
+			'reorder_level' => parse_decimals($this->input->post('reorder_level')),
 			'receiving_quantity' => $receiving_quantity,
 			'allow_alt_description' => $this->input->post('allow_alt_description') != NULL,
 			'is_serialized' => $this->input->post('is_serialized') != NULL,
@@ -560,7 +561,7 @@ class Items extends Secure_Controller
 				$count = count($tax_percents);
 				for ($k = 0; $k < $count; ++$k)
 				{
-					$tax_percentage = parse_tax($tax_percents[$k]);
+					$tax_percentage = parse_decimals($tax_percents[$k]);
 					if(is_numeric($tax_percentage))
 					{
 						$items_taxes_data[] = array('name' => $tax_names[$k], 'percent' => $tax_percentage);
@@ -573,7 +574,7 @@ class Items extends Secure_Controller
 			$stock_locations = $this->Stock_location->get_undeleted_all()->result_array();
 			foreach($stock_locations as $location)
 			{
-				$updated_quantity = parse_quantity($this->input->post('quantity_' . $location['location_id']));
+				$updated_quantity = parse_decimals($this->input->post('quantity_' . $location['location_id']));
 				if($item_data['item_type'] == ITEM_TEMP)
 				{
 					$updated_quantity = 0;
@@ -621,19 +622,19 @@ class Items extends Secure_Controller
 				
 				echo json_encode(array('success' => TRUE, 'message' => $message, 'id' => $item_id));
 				
-			//Event triggers for Third-Party Integrations
+				//Event triggers for Third-Party Integrations
 				if($new_item)
 				{
-				    $event_failures = Events::Trigger('event_create', array("type"=> "ITEMS", "data" => $item_data), 'string');
+					$event_failures = Events::Trigger('event_create', array("type"=> "ITEMS", "data" => $item_data), 'string');
 				}
 				else
 				{
-				    $event_failures = Events::Trigger('event_update', array("type"=> "ITEMS", "data" => $item_data), 'string');
+					$event_failures = Events::Trigger('event_update', array("type"=> "ITEMS", "data" => $item_data), 'string');
 				}
 				
 				if($event_failures)
 				{
-				    log_message("ERROR","Third-Party Integration failed during item save: $event_failures");
+					log_message("ERROR","Third-Party Integration failed during item save: $event_failures");
 				}
 			}
 			else
@@ -709,7 +710,7 @@ class Items extends Secure_Controller
 			'trans_user' => $employee_id,
 			'trans_location' => $location_id,
 			'trans_comment' => $this->input->post('trans_comment'),
-			'trans_inventory' => parse_quantity($this->input->post('newquantity'))
+			'trans_inventory' => parse_decimals($this->input->post('newquantity'))
 		);
 		
 		$this->Inventory->insert($inv_data);
@@ -719,7 +720,7 @@ class Items extends Secure_Controller
 		$item_quantity_data = array(
 			'item_id' => $item_id,
 			'location_id' => $location_id,
-			'quantity' => $item_quantity->quantity + parse_quantity($this->input->post('newquantity'))
+			'quantity' => $item_quantity->quantity + parse_decimals($this->input->post('newquantity'))
 		);
 		
 		if($this->Item_quantity->save($item_quantity_data, $item_id, $location_id))
@@ -819,7 +820,7 @@ class Items extends Secure_Controller
 		$data = generate_import_items_csv($allowed_locations,$allowed_attributes);
 		force_download($name, $data, TRUE);
 	}
-
+	
 	public function csv_import()
 	{
 		$this->load->view('items/form_csv_import', NULL);
@@ -890,19 +891,19 @@ class Items extends Secure_Controller
 						$this->save_inventory_quantities($line, $item_data);
 						$this->save_attribute_data($line, $item_data);
 						
-					//Event triggers for Third-Party Integrations
+						//Event triggers for Third-Party Integrations
 						if($this->Item->item_number_exists($item_number))
 						{
-						    $event_failures = Events::Trigger('event_update', array("type"=> "ITEMS", "data" => $item_data), 'string');
+							$event_failures = Events::Trigger('event_update', array("type"=> "ITEMS", "data" => $item_data), 'string');
 						}
 						else
 						{
-						    $event_failures = Events::Trigger('event_create', array("type"=> "ITEMS", "data" => $item_data), 'string');
+							$event_failures = Events::Trigger('event_create', array("type"=> "ITEMS", "data" => $item_data), 'string');
 						}
 						
 						if($event_failures)
 						{
-						    log_message("ERROR","Third-Party Integration failed during CSV Import: $event_failures");
+							log_message("ERROR","Third-Party Integration failed during CSV Import: $event_failures");
 						}
 					}
 					else //insert or update item failure
@@ -1073,7 +1074,7 @@ class Items extends Secure_Controller
 				'item_id' => $item_data['item_id'],
 				'location_id' => $location_id
 			);
-
+			
 			$csv_data = array(
 				'trans_items' => $item_data['item_id'],
 				'trans_user' => $employee_id,
@@ -1085,7 +1086,7 @@ class Items extends Secure_Controller
 			{
 				$item_quantity_data['quantity'] = $line['location_' . $location_name];
 				$this->Item_quantity->save($item_quantity_data, $item_data['item_id'], $location_id);
-
+				
 				$csv_data['trans_inventory'] = $line['location_' . $location_name];
 				$this->Inventory->insert($csv_data);
 			}
@@ -1093,7 +1094,7 @@ class Items extends Secure_Controller
 			{
 				$item_quantity_data['quantity'] = 0;
 				$this->Item_quantity->save($item_quantity_data, $item_data['item_id'], $line[$col]);
-
+				
 				$csv_data['trans_inventory'] = 0;
 				$this->Inventory->insert($csv_data);
 			}
